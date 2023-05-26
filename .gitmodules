@@ -1,0 +1,3 @@
+[submodule "lib/StepperMotorDriver"]
+	path = lib/StepperMotorDriver
+	url = git@github.com:mateuszbugaj/A4988Controller.git
