@@ -3,10 +3,13 @@
 
 #include <avr/io.h>
 
-typedef void (*CommandCallback)(uint16_t parameter);
+#define MAX_COMMAND_LENGTH 10
+#define MAX_PARAMETERS 10
+
+typedef void (*CommandCallback)(int16_t parameters[], uint8_t param_count);
 
 typedef struct {
-    char command;
+    char command[MAX_COMMAND_LENGTH];
     CommandCallback callback;
 } parser_command_handler_t;
 

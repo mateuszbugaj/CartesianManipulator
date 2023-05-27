@@ -33,8 +33,9 @@ void usart_print_char(char c){
 }
 
 void usart_print_num(int16_t number){
-    char buffer[6]; // enough to hold all digits of int16_t
+char buffer[6]; // enough to hold all digits of int16_t
     uint8_t index = 0;
+    int16_t original_number = number;  // store original number
 
     if(number == 0){ 
         usart_print("0");
@@ -42,7 +43,6 @@ void usart_print_num(int16_t number){
     }
 
     if(number < 0){
-        buffer[index++] = '-';
         number *= -1;
     }
 
@@ -56,6 +56,18 @@ void usart_print_num(int16_t number){
         char temp = buffer[i];
         buffer[i] = buffer[index - i - 1];
         buffer[index - i - 1] = temp;
+    }
+
+    // check if the original number was negative
+    if(original_number < 0) {
+        // shift characters in buffer to right by one position
+        for(uint8_t i = index; i > 0; i--) {
+            buffer[i] = buffer[i - 1];
+        }
+
+        // insert '-' sign at the start
+        buffer[0] = '-';
+        index++;
     }
 
     buffer[index] = '\0'; // null-terminate the string
