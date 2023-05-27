@@ -3,7 +3,7 @@ MCU := atmega168
 F_CPU := 8000000UL
 CC := avr-gcc
 OBJCOPY := avr-objcopy
-CFLAGS := -std=c99 -Wall -g -Os -mmcu=${MCU} -DF_CPU=${F_CPU}UL -I$(CURDIR)/inc -I$(CURDIR)/lib/StepperMotorDriver/inc
+CFLAGS := -std=c99 -Wall -g -Os -mmcu=${MCU} -DF_CPU=${F_CPU} -I$(CURDIR)/inc -I$(CURDIR)/lib/StepperMotorDriver/inc
 SRCDIR := src
 INCDIR := inc
 LIBDIR := lib
