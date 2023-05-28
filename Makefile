@@ -11,10 +11,10 @@ SRC := $(wildcard $(SRCDIR)/*.c)
 OBJ := $(SRC:.c=.o)
 TARGET := cartesian_manipulator
 
-all: ${TARGET}.bin
+all: lib ${TARGET}.bin
 
 ${TARGET}.bin: ${OBJ}
-	$(CC) $(CFLAGS) -I. -o $@ ${OBJ} lib/StepperMotorDriver/a4988.a
+	$(CC) $(CFLAGS) -I. -o $@ ${OBJ} $(LIBDIR)/StepperMotorDriver/a4988.a
 
 %.o: %.c
 	$(CC) -c -MMD $(CFLAGS) -I$(INCDIR) -I$(LIBDIR)/StepperMotorDriver/inc $< -o $@
@@ -34,3 +34,4 @@ flash: cartesian_manipulator.hex
 
 clean:
 	rm -f $(SRCDIR)/*.o $(SRCDIR)/*.d ${TARGET}.bin ${TARGET}.hex
+	make -C $(LIBDIR)/StepperMotorDriver clean
