@@ -6,6 +6,16 @@
 #include "usart.h"
 #include "parser.h"
 
+typedef struct {
+    A4988* motor;
+    GPIOPin* edgeSwitch;
+    uint8_t state;
+    uint8_t oldState;
+    bool edgeDetected;
+    bool edgeRead;
+	uint8_t homing; // A 3 step process of homing
+} Axis;
+
 A4988 motor_x = {
     .step = { .port = &PORTC, .pin = PC1 },
     .dir = { .port = &PORTB, .pin = PB2 },
@@ -23,6 +33,19 @@ A4988 motor_y = {
     .ms2 = { .port = &PORTD, .pin = PD5},
     .ms3 = { .port = &PORTB, .pin = PB7}
 };
+
+GPIOPin edge_switch_x = { .port = &PORTD, .pin = PD2 };
+GPIOPin edge_switch_y = { .port = &PORTD, .pin = PD3 };
+
+Axis axis_x = { 
+	.motor = &motor_x, 
+	.edgeSwitch = &edge_switch_x,
+	.edgeDetected = false };
+
+Axis axis_y = { 
+	.motor = &motor_y, 
+	.edgeSwitch = &edge_switch_y,
+	.edgeDetected = false };
 
 void synchronized_move(A4988* motor_x, float mm_x, A4988* motor_y, float mm_y) {
 	// todo
@@ -43,16 +66,34 @@ void synchronized_move(A4988* motor_x, float mm_x, A4988* motor_y, float mm_y) {
     a4988_move_steps(motor_y, full_steps_y);
 }
 
-
 void handle_move_command(float parameters[], uint8_t param_count) {
     if(param_count != 3) return;
 
     synchronized_move(&motor_x, parameters[0], &motor_y, parameters[1]);
 }
 
+void debounce_and_check_edge_switch(Axis* axis) {
+    bool current_state = gpio_pin_read(*(axis->edgeSwitch)) == LOW;
+    if (current_state && axis->oldState != current_state) {
+        axis->edgeDetected = true;
+        axis->edgeRead = false;
+    } else if (!current_state && axis->oldState != current_state) {
+        axis->edgeDetected = false;
+    }
+    axis->oldState = current_state;
+}
+
+void handle_home_command(float parameters[], uint8_t param_count){
+	usart_print("Homing...\n\r");
+	axis_x.homing = 1;
+	a4988_set_microstepping(axis_x.motor, 2);
+	a4988_set_speed(axis_x.motor, 150);
+    // axis_y.homing = 1;
+}
 
 parser_command_handler_t command_handlers[] = {
-    { .command = "G0", .callback = handle_move_command}
+    { .command = "G0", .callback = handle_move_command},
+    { .command = "G28", .callback = handle_home_command}
 };
 
 bool x = true;
@@ -68,6 +109,14 @@ int main() {
     a4988_init(&motor_x);
     a4988_init(&motor_y);
 
+ 	// Initialize the edge switches
+    gpio_pin_direction(edge_switch_x, INPUT);
+    gpio_pin_direction(edge_switch_y, INPUT);
+
+    // Enable pull-up resistors (if necessary)
+    gpio_pin_write(edge_switch_x, HIGH);
+    gpio_pin_write(edge_switch_y, HIGH);
+
 	uint8_t microstepping = 4;
 
     a4988_set_target_speed(&motor_x, 100);
@@ -82,6 +131,26 @@ int main() {
 	gpio_pin_direction(LED, OUTPUT);
 
     while (1) {
+        debounce_and_check_edge_switch(&axis_x);
+		if(axis_x.homing == 1){
+			if(!motor_x.moving){
+				a4988_move_steps(&motor_x, 10);
+			}
+		}
+
+		if (axis_x.edgeDetected && !axis_x.edgeRead) {
+			axis_x.homing = 2;
+			a4988_move_steps(&motor_x, -50);
+			axis_x.edgeRead = true;
+		}
+
+		if(axis_x.homing == 2){
+			a4988_set_microstepping(axis_x.motor, 4);
+			a4988_set_acceleration(axis_x.motor, axis_x.motor->acceleration);
+			a4988_move_steps(&motor_x, -200);
+			axis_x.homing = 0;
+		}
+
         if(a4988_is_moving(&motor_x) || a4988_is_moving(&motor_y)){
 			gpio_pin_write(LED, HIGH);
 			gpio_pin_write(motor_x.sleep, HIGH);

@@ -48,7 +48,19 @@ void parser_feed_char(char c) {
                 context.state = STATE_PARSING_NUMBER;
                 context.num_buffer_pos = 0;
                 context.isNegative = 0;
-            }
+            } else if (c == '\n' || c == '\r'){
+				// End of the command. Send it to callback.
+				for (uint8_t i = 0; i < context.num_handlers; i++) {
+					if (strcmp(context.command_handlers[i].command, context.command_buffer) == 0) {
+						context.command_handlers[i].callback(context.parameters, context.param_count);
+						break;
+					}
+				}
+
+				context.state = STATE_WAITING_FOR_COMMAND;
+				context.command_buffer_pos = 0;
+				context.param_count = 0;
+			}
             break;
         case STATE_PARSING_NUMBER:
             if (c == '-') {
