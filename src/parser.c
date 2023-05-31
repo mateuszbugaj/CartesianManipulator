@@ -49,6 +49,7 @@ void parser_feed_char(char c) {
                 context.num_buffer_pos = 0;
                 context.isNegative = 0;
             } else if (c == '\n' || c == '\r'){
+
 				// End of the command. Send it to callback.
 				for (uint8_t i = 0; i < context.num_handlers; i++) {
 					if (strcmp(context.command_handlers[i].command, context.command_buffer) == 0) {
@@ -58,8 +59,7 @@ void parser_feed_char(char c) {
 				}
 
 				context.state = STATE_WAITING_FOR_COMMAND;
-				context.command_buffer_pos = 0;
-				context.param_count = 0;
+				clear_context(&context);
 			}
             break;
         case STATE_PARSING_NUMBER:
@@ -100,13 +100,23 @@ void parser_feed_char(char c) {
 					}
 
 					context.state = STATE_WAITING_FOR_COMMAND;
-					context.command_buffer_pos = 0;
-					context.param_count = 0;
+
+                    clear_context(&context);
 				}
-            } else {
-				context.num_buffer_pos = 0;
-				context.isNegative = 0;
-			}
+            }
+
             break;
     }
+}
+
+void clear_context(ParserContext* context){
+    memset(context->command_buffer, 0, sizeof(context->command_buffer));
+    context->command_buffer_pos = 0;
+
+    memset(context->num_buffer, 0, sizeof(context->num_buffer));
+    context->num_buffer_pos = 0;
+    context->isNegative = 0;
+
+    memset(context->parameters, 0, sizeof(context->parameters));
+    context->param_count = 0;
 }
