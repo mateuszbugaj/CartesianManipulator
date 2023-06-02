@@ -5,6 +5,7 @@
 #include "a4988.h"
 #include "usart.h"
 #include "parser.h"
+#include "gripper.h"
 
 #define PRECISION_SPEED 2
 #define NORMAL_SPEED 200
@@ -144,12 +145,25 @@ void handle_normal_mode_command(float parameters[], uint8_t param_count){
     usart_print("OK\n\r");
 }
 
+void handle_gripper_command(float parameters[], uint8_t param_count){
+    uint8_t opennsess = (uint8_t) parameters[0];
+
+    usart_print("Gripper: ");
+    usart_print_num(opennsess);
+    usart_print("\n\r");
+    
+    gripper_set_openness(opennsess);
+
+    usart_print("OK\n\r");
+}
+
 parser_command_handler_t command_handlers[] = {
     { .command = "G0", .callback = handle_move_command},
     { .command = "G28", .callback = handle_home_command},
     { .command = "F", .callback = handle_change_speed_command},
     { .command = "PREC", .callback = handle_precision_mode_command},
-    { .command = "NORM", .callback = handle_normal_mode_command}
+    { .command = "NORM", .callback = handle_normal_mode_command},
+    { .command = "M", .callback = handle_gripper_command}
 };
 
 int main() {
@@ -178,6 +192,9 @@ int main() {
     gpio_pin_write(edge_switch_x, HIGH);
     gpio_pin_write(edge_switch_y, HIGH);
 
+    // Initialize gripper
+    gripper_init();
+
 	GPIOPin LED = { .port = &PORTB, .pin = PB0 };
 	gpio_pin_direction(LED, OUTPUT);
 
@@ -185,12 +202,14 @@ int main() {
         home_axis_pooling(&axis_x);
         home_axis_pooling(&axis_y);
 
+        // Confirm that homing has ended
         if(homing == true && axis_x.homing == false && axis_y.homing == false && axis_x.motor->moving == false && axis_y.motor->moving == false){
             homing = false;
 
             usart_print("OK\n\r");
         }
 
+        // Confirm that movement has ended
         if(moving == true && axis_x.motor->moving == false && axis_y.motor->moving == false){
             moving = false;
 
@@ -209,7 +228,7 @@ int main() {
     return 0;
 }
 
-ISR(TIMER1_COMPA_vect) {
+ISR(TIMER0_COMPA_vect) {
     a4988_step(&motor_x);
     a4988_step(&motor_y);
 }
