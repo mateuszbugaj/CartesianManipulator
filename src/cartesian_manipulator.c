@@ -143,7 +143,7 @@ void home_axis_pooling(Axis* axis){
 
     if(axis->homing == 1){
         if(!axis->motor->moving){
-            a4988_move_steps(axis->motor, 10);
+            a4988_move_steps(axis->motor, 20);
         }
     }
 
@@ -178,6 +178,7 @@ void handle_precision_mode_command(float parameters[], uint8_t param_count){
     a4988_set_speed(axis_y.motor, PRECISION_SPEED);
     a4988_set_microstepping(&motor_x, 8);
     a4988_set_microstepping(&motor_y, 8);
+    a4988_set_microstepping(&motor_z, 8);
 
     usart_print("OK\n\r");
 }
@@ -186,6 +187,7 @@ void handle_normal_mode_command(float parameters[], uint8_t param_count){
     a4988_set_speed(axis_x.motor, NORMAL_SPEED);
     a4988_set_speed(axis_y.motor, NORMAL_SPEED);
     a4988_set_microstepping(&motor_x, 4);
+    a4988_set_microstepping(&motor_y, 4);
     a4988_set_microstepping(&motor_y, 4);
 
     usart_print("OK\n\r");
@@ -283,7 +285,7 @@ int main() {
     parser_init(command_handlers, sizeof(command_handlers)/sizeof(command_handlers[0]));
 
     // Initialize A4988 drivers
-	uint8_t microstepping = 8;
+	uint8_t microstepping = 4;
     a4988_init(&motor_x);
     a4988_set_microstepping(&motor_x, microstepping);
     a4988_set_speed(&motor_x, 100);
@@ -302,8 +304,8 @@ int main() {
 
     a4988_init(&motor_z);
     a4988_set_microstepping(&motor_z, microstepping);
-    a4988_set_speed(&motor_z, 200);
-    axis_z.zero_after_homing = 20;
+    a4988_set_speed(&motor_z, 400);
+    axis_z.zero_after_homing = 40;
     axis_z.limit_low = -50;
     axis_z.limit_up = 50;
     axis_z.mm_per_revolution = 2.0f; // for motors connected to a T2 screw
