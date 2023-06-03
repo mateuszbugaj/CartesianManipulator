@@ -20,6 +20,9 @@ typedef struct {
     bool edgeRead;
 	uint8_t homing; // A 3 step process of homing
     int16_t zero_after_homing; // distance in mm to move after homing
+    float pos;
+    float limit_low;
+    float limit_up;
 } Axis;
 
 A4988 motor_x = {
@@ -57,9 +60,33 @@ Axis axis_y = {
 
 bool homing = false;
 bool moving = false;
+bool relative_positioning = true;
 int32_t tempSpeed = 0;
 
 void move(Axis* axis, float mm) {
+    float newPos;
+
+    if(relative_positioning == true){
+        newPos = axis->pos + mm;
+    } else {
+        newPos = mm;
+        mm = newPos - axis->pos;
+    }
+
+    if(homing == false && (newPos < axis->limit_low || newPos > axis->limit_up)){
+        usart_print_char(axis->direction);
+        usart_print(" above limit\n\r");
+
+        return;
+    }
+
+    axis->pos = newPos;
+
+    usart_print_char(axis->direction);
+    usart_print(" new position: ");
+    usart_print_num(newPos);
+    usart_print("\n\r");
+
     float full_steps_per_revolution = 200.0f;
     float step_distance_mm = 40.0f / full_steps_per_revolution;
     float steps_per_mm = full_steps_per_revolution / 40.0f;
@@ -91,6 +118,7 @@ void debounce_and_check_edge_switch(Axis* axis) {
 
 void home_axis(Axis* axis){
 	axis->homing = 1;
+    relative_positioning = true;
 }
 
 void home_axis_pooling(Axis* axis){
@@ -146,14 +174,71 @@ void handle_normal_mode_command(float parameters[], uint8_t param_count){
 }
 
 void handle_gripper_command(float parameters[], uint8_t param_count){
-    uint8_t opennsess = (uint8_t) parameters[0];
+    if(param_count == 1){
+        uint8_t opennsess = (uint8_t) parameters[0];
+        gripper_set_openness(opennsess);
+    }
 
-    usart_print("Gripper: ");
-    usart_print_num(opennsess);
-    usart_print("\n\r");
-    
-    gripper_set_openness(opennsess);
+    usart_print("OK\n\r");
+}
 
+void handle_zero_command(float parameters[], uint8_t param_count){
+    axis_x.pos = 0;
+    axis_y.pos = 0;
+
+    usart_print("New Position: [0 0 0]\n\r");
+    usart_print("OK\n\r");
+}
+
+void handle_new_limit_x_command(float parameters[], uint8_t param_count){
+    if(param_count == 1){
+        axis_x.limit_low = -parameters[0];
+        axis_x.limit_up = parameters[0];
+    } else if(param_count == 2){
+        if(parameters[0] < parameters[1]){
+            axis_x.limit_low = parameters[0];
+            axis_x.limit_up = parameters[1];
+        }
+    }
+
+    usart_print("New limits for x: [");
+    usart_print_num(axis_x.limit_low);
+    usart_print(", ");
+    usart_print_num(axis_x.limit_up);
+    usart_print("]\n\r");
+
+    usart_print("OK\n\r");
+}
+
+void handle_new_limit_y_command(float parameters[], uint8_t param_count){
+    if(param_count == 1){
+        axis_y.limit_low = -parameters[0];
+        axis_y.limit_up = parameters[0];
+    } else if(param_count == 2){
+        if(parameters[0] < parameters[1]){
+            axis_y.limit_low = parameters[0];
+            axis_y.limit_up = parameters[1];
+        }
+    }
+
+    usart_print("New limits for y: [");
+    usart_print_num(axis_y.limit_low);
+    usart_print(", ");
+    usart_print_num(axis_y.limit_up);
+    usart_print("]\n\r");
+
+    usart_print("OK\n\r");
+}
+
+void handle_positioning_mode_relative_command(float parameters[], uint8_t param_count){
+    relative_positioning = true;
+    usart_print("Relative positioning\n\r");
+    usart_print("OK\n\r");
+}
+
+void handle_positioning_mode_absolute_command(float parameters[], uint8_t param_count){
+    relative_positioning = false;
+    usart_print("Relative positioning\n\r");
     usart_print("OK\n\r");
 }
 
@@ -163,7 +248,12 @@ parser_command_handler_t command_handlers[] = {
     { .command = "F", .callback = handle_change_speed_command},
     { .command = "PREC", .callback = handle_precision_mode_command},
     { .command = "NORM", .callback = handle_normal_mode_command},
-    { .command = "M", .callback = handle_gripper_command}
+    { .command = "M", .callback = handle_gripper_command},
+    { .command = "ZERO", .callback = handle_zero_command},
+    { .command = "LIMITX", .callback = handle_new_limit_x_command},
+    { .command = "LIMITY", .callback = handle_new_limit_y_command},
+    { .command = "G90", .callback = handle_positioning_mode_relative_command},
+    { .command = "G91", .callback = handle_positioning_mode_absolute_command}
 };
 
 int main() {
@@ -177,13 +267,17 @@ int main() {
 	uint8_t microstepping = 8;
     a4988_init(&motor_x);
     a4988_set_microstepping(&motor_x, microstepping);
-    a4988_set_speed(&motor_x, 300);
+    a4988_set_speed(&motor_x, 100);
     axis_x.zero_after_homing = 170;
+    axis_x.limit_low = -100;
+    axis_x.limit_up = 100;
 
     a4988_init(&motor_y);
     a4988_set_microstepping(&motor_y, microstepping);
-    a4988_set_speed(&motor_y, 300);
+    a4988_set_speed(&motor_y, 100);
     axis_y.zero_after_homing = 200;
+    axis_y.limit_low = -100;
+    axis_y.limit_up = 100;
 
  	// Initialize the edge switches
     gpio_pin_direction(edge_switch_x, INPUT);
@@ -205,6 +299,8 @@ int main() {
         // Confirm that homing has ended
         if(homing == true && axis_x.homing == false && axis_y.homing == false && axis_x.motor->moving == false && axis_y.motor->moving == false){
             homing = false;
+            axis_x.pos = 0;
+            axis_y.pos = 0;
 
             usart_print("OK\n\r");
         }
