@@ -23,6 +23,7 @@ typedef struct {
     float pos;
     float limit_low;
     float limit_up;
+    float mm_per_revolution;
 } Axis;
 
 A4988 motor_x = {
@@ -43,8 +44,18 @@ A4988 motor_y = {
     .ms3 = { .port = &PORTB, .pin = PB7}
 };
 
+A4988 motor_z = {
+    .step = { .port = &PORTC, .pin = PC4 },
+    .dir = { .port = &PORTC, .pin = PC5 },
+    .sleep = { .port = &PORTB, .pin = PB6},
+    .ms1 = { .port = &PORTD, .pin = PD6},
+    .ms2 = { .port = &PORTD, .pin = PD5},
+    .ms3 = { .port = &PORTB, .pin = PB7}
+};
+
 GPIOPin edge_switch_x = { .port = &PORTD, .pin = PD2 };
 GPIOPin edge_switch_y = { .port = &PORTD, .pin = PD3 };
+GPIOPin edge_switch_z = { .port = &PORTD, .pin = PD4 };
 
 Axis axis_x = { 
     .direction = 'x',
@@ -56,6 +67,12 @@ Axis axis_y = {
     .direction = 'y',
 	.motor = &motor_y, 
 	.edgeSwitch = &edge_switch_y,
+	.edgeDetected = false };
+
+Axis axis_z = { 
+    .direction = 'z',
+	.motor = &motor_z, 
+	.edgeSwitch = &edge_switch_z,
 	.edgeDetected = false };
 
 bool homing = false;
@@ -88,8 +105,7 @@ void move(Axis* axis, float mm) {
     usart_print("\n\r");
 
     float full_steps_per_revolution = 200.0f;
-    float step_distance_mm = 40.0f / full_steps_per_revolution;
-    float steps_per_mm = full_steps_per_revolution / 40.0f;
+    float steps_per_mm = full_steps_per_revolution / axis->mm_per_revolution;
     float steps = mm * steps_per_mm;
     int16_t full_steps = (int16_t) steps;
 
@@ -101,6 +117,7 @@ void handle_move_command(float parameters[], uint8_t param_count) {
 
     move(&axis_x, parameters[0]);
     move(&axis_y, parameters[1]);
+    move(&axis_z, parameters[2]);
 
     moving = true;
 }
@@ -145,6 +162,7 @@ void home_axis_pooling(Axis* axis){
 void handle_home_command(float parameters[], uint8_t param_count){
     home_axis(&axis_x);
     home_axis(&axis_y);
+    home_axis(&axis_z);
     homing = true;
 }
 
@@ -185,6 +203,7 @@ void handle_gripper_command(float parameters[], uint8_t param_count){
 void handle_zero_command(float parameters[], uint8_t param_count){
     axis_x.pos = 0;
     axis_y.pos = 0;
+    axis_z.pos = 0;
 
     usart_print("New Position: [0 0 0]\n\r");
     usart_print("OK\n\r");
@@ -271,6 +290,7 @@ int main() {
     axis_x.zero_after_homing = 170;
     axis_x.limit_low = -100;
     axis_x.limit_up = 100;
+    axis_x.mm_per_revolution = 40.0f; // for motors connected to the tooth belt
 
     a4988_init(&motor_y);
     a4988_set_microstepping(&motor_y, microstepping);
@@ -278,13 +298,24 @@ int main() {
     axis_y.zero_after_homing = 200;
     axis_y.limit_low = -100;
     axis_y.limit_up = 100;
+    axis_y.mm_per_revolution = 40.0f; // for motors connected to the tooth belt
+
+    a4988_init(&motor_z);
+    a4988_set_microstepping(&motor_z, microstepping);
+    a4988_set_speed(&motor_z, 200);
+    axis_z.zero_after_homing = 20;
+    axis_z.limit_low = -50;
+    axis_z.limit_up = 50;
+    axis_z.mm_per_revolution = 2.0f; // for motors connected to a T2 screw
 
  	// Initialize the edge switches
     gpio_pin_direction(edge_switch_x, INPUT);
     gpio_pin_direction(edge_switch_y, INPUT);
+    gpio_pin_direction(edge_switch_z, INPUT);
 
     gpio_pin_write(edge_switch_x, HIGH);
     gpio_pin_write(edge_switch_y, HIGH);
+    gpio_pin_write(edge_switch_z, HIGH);
 
     // Initialize gripper
     gripper_init();
@@ -295,12 +326,20 @@ int main() {
     while (1) {
         home_axis_pooling(&axis_x);
         home_axis_pooling(&axis_y);
+        home_axis_pooling(&axis_z);
 
         // Confirm that homing has ended
-        if(homing == true && axis_x.homing == false && axis_y.homing == false && axis_x.motor->moving == false && axis_y.motor->moving == false){
+        if(homing == true && 
+        axis_x.homing == false && 
+        axis_y.homing == false && 
+        axis_z.homing == false && 
+        axis_x.motor->moving == false && 
+        axis_y.motor->moving == false && 
+        axis_z.motor->moving == false){
             homing = false;
             axis_x.pos = 0;
             axis_y.pos = 0;
+            axis_z.pos = 0;
 
             usart_print("OK\n\r");
         }
@@ -312,7 +351,7 @@ int main() {
             usart_print("OK\n\r");
         }
 
-        if(a4988_is_moving(&motor_x) || a4988_is_moving(&motor_y)){
+        if(a4988_is_moving(&motor_x) || a4988_is_moving(&motor_y) || a4988_is_moving(&motor_z)){
 			gpio_pin_write(LED, HIGH);
 			gpio_pin_write(motor_x.sleep, HIGH);
         } else {
@@ -327,4 +366,5 @@ int main() {
 ISR(TIMER0_COMPA_vect) {
     a4988_step(&motor_x);
     a4988_step(&motor_y);
+    a4988_step(&motor_z);
 }
