@@ -251,6 +251,26 @@ void handle_new_limit_y_command(float parameters[], uint8_t param_count){
     usart_print("OK\n\r");
 }
 
+void handle_new_limit_z_command(float parameters[], uint8_t param_count){
+    if(param_count == 1){
+        axis_z.limit_low = -parameters[0];
+        axis_z.limit_up = parameters[0];
+    } else if(param_count == 2){
+        if(parameters[0] < parameters[1]){
+            axis_z.limit_low = parameters[0];
+            axis_z.limit_up = parameters[1];
+        }
+    }
+
+    usart_print("New limits for z: [");
+    usart_print_num(axis_z.limit_low);
+    usart_print(", ");
+    usart_print_num(axis_z.limit_up);
+    usart_print("]\n\r");
+
+    usart_print("OK\n\r");
+}
+
 void handle_positioning_mode_relative_command(float parameters[], uint8_t param_count){
     relative_positioning = true;
     usart_print("Relative positioning\n\r");
@@ -273,6 +293,7 @@ parser_command_handler_t command_handlers[] = {
     { .command = "ZERO", .callback = handle_zero_command},
     { .command = "LIMITX", .callback = handle_new_limit_x_command},
     { .command = "LIMITY", .callback = handle_new_limit_y_command},
+    { .command = "LIMITZ", .callback = handle_new_limit_z_command},
     { .command = "G90", .callback = handle_positioning_mode_relative_command},
     { .command = "G91", .callback = handle_positioning_mode_absolute_command}
 };
