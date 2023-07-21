@@ -318,7 +318,7 @@ int main() {
     a4988_init(&motor_y);
     a4988_set_microstepping(&motor_y, microstepping);
     a4988_set_speed(&motor_y, 100);
-    axis_y.zero_after_homing = 200;
+    axis_y.zero_after_homing = 100;
     axis_y.limit_low = -100;
     axis_y.limit_up = 100;
     axis_y.mm_per_revolution = 40.0f; // for motors connected to the tooth belt
