@@ -8,7 +8,7 @@
 #include "gripper.h"
 
 #define PRECISION_SPEED 2
-#define NORMAL_SPEED 200
+#define NORMAL_SPEED 100
 
 typedef struct {
     char direction;
@@ -80,7 +80,7 @@ bool moving = false;
 bool relative_positioning = true;
 int32_t tempSpeed = 0;
 
-void move(Axis* axis, float mm) {
+bool checkLimits(Axis* axis, float mm){
     float newPos;
 
     if(relative_positioning == true){
@@ -90,11 +90,24 @@ void move(Axis* axis, float mm) {
         mm = newPos - axis->pos;
     }
 
-    if(homing == false && (newPos < axis->limit_low || newPos > axis->limit_up)){
+    if(newPos < axis->limit_low || newPos > axis->limit_up){
         usart_print_char(axis->direction);
         usart_print(" above limit\n\r");
 
-        return;
+        return false;
+    }
+
+    return true;
+}
+
+void move(Axis* axis, float mm) {
+    float newPos;
+
+    if(relative_positioning == true){
+        newPos = axis->pos + mm;
+    } else {
+        newPos = mm;
+        mm = newPos - axis->pos;
     }
 
     axis->pos = newPos;
@@ -115,11 +128,15 @@ void move(Axis* axis, float mm) {
 void handle_move_command(float parameters[], uint8_t param_count) {
     if(param_count != 3) return;
 
-    move(&axis_x, parameters[0]);
-    move(&axis_y, parameters[1]);
-    move(&axis_z, parameters[2]);
+    if(checkLimits(&axis_x, parameters[0]) && checkLimits(&axis_x, parameters[0]) && checkLimits(&axis_x, parameters[0])) {
+        move(&axis_x, parameters[0]);
+        move(&axis_y, parameters[1]);
+        move(&axis_z, parameters[2]);
 
-    moving = true;
+        moving = true;
+    } else {
+        usart_print("OK\n\r");
+    }
 }
 
 void debounce_and_check_edge_switch(Axis* axis) {
@@ -346,6 +363,7 @@ int main() {
 	GPIOPin LED = { .port = &PORTB, .pin = PB0 };
 	gpio_pin_direction(LED, OUTPUT);
 
+    usart_print("Cartesian Manipulator start...\n\r");
     while (1) {
         home_axis_pooling(&axis_x);
         home_axis_pooling(&axis_y);
@@ -368,7 +386,7 @@ int main() {
         }
 
         // Confirm that movement has ended
-        if(moving == true && axis_x.motor->moving == false && axis_y.motor->moving == false){
+        if(moving == true && axis_x.motor->moving == false && axis_y.motor->moving == false && axis_z.motor->moving == false){
             moving = false;
 
             usart_print("OK\n\r");
