@@ -186,6 +186,7 @@ void handle_home_command(float parameters[], uint8_t param_count){
 void handle_change_speed_command(float parameters[], uint8_t param_count){
     a4988_set_speed(axis_x.motor, parameters[0]);
     a4988_set_speed(axis_y.motor, parameters[0]);
+    a4988_set_speed(axis_z.motor, parameters[0] * 4);
 
     usart_print("OK\n\r");
 }
@@ -193,6 +194,7 @@ void handle_change_speed_command(float parameters[], uint8_t param_count){
 void handle_precision_mode_command(float parameters[], uint8_t param_count){
     a4988_set_speed(axis_x.motor, PRECISION_SPEED);
     a4988_set_speed(axis_y.motor, PRECISION_SPEED);
+    a4988_set_speed(axis_z.motor, PRECISION_SPEED * 4);
     a4988_set_microstepping(&motor_x, 8);
     a4988_set_microstepping(&motor_y, 8);
     a4988_set_microstepping(&motor_z, 8);
@@ -203,6 +205,7 @@ void handle_precision_mode_command(float parameters[], uint8_t param_count){
 void handle_normal_mode_command(float parameters[], uint8_t param_count){
     a4988_set_speed(axis_x.motor, NORMAL_SPEED);
     a4988_set_speed(axis_y.motor, NORMAL_SPEED);
+    a4988_set_speed(axis_z.motor, NORMAL_SPEED * 4);
     a4988_set_microstepping(&motor_x, 4);
     a4988_set_microstepping(&motor_y, 4);
     a4988_set_microstepping(&motor_y, 4);
