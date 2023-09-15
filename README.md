@@ -4,6 +4,7 @@ This repository contains the firmware for a three-axis manipulator system. The m
 ## Overview
 The manipulator has three axes: X, Y, and Z, each controlled by a stepper motor. Each axis also has an edge switch to determine its limit. The project code includes routines for handling move commands, speed changes, precision and normal mode, and homing.
 
+Demo of the manipulator: [CartesianManipulatorDemo.gif](CartesianManipulatorDemo.gif) <br/><br/>
 ![df](CartesianManipulatorDemo.gif)
 
 The project also includes a USART serial communication module and a basic command parser for controlling the manipulator. The manipulator can be controlled in relative or absolute positioning modes.
@@ -18,6 +19,7 @@ The hardware requirements for this project include:
 5. Gripper with servo motor
 
 Files describing PCB layout can be found in `PCB/` directory.
+
 ![df](PCB/PCB.png)
 
 ## Software
